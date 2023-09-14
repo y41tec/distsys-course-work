@@ -7,8 +7,6 @@ MESSAGE_ORDER_LIMIT_AMO = 3
 
 
 class AtMostOnceSender(Process):
-    # __slots__ = ['_id', '_receiver', '_order']
-
     def __init__(self, proc_id: str, receiver_id: str):
         self._id = proc_id
         self._receiver = receiver_id
@@ -16,7 +14,7 @@ class AtMostOnceSender(Process):
 
     def on_local_message(self, msg: Message, ctx: Context):
         # receive message for delivery from local user
-        msg['order'] = self._order
+        msg["order"] = self._order
         ctx.send(msg, self._receiver)
         self._order += 1
 
@@ -30,8 +28,6 @@ class AtMostOnceSender(Process):
 
 
 class AtMostOnceReceiver(Process):
-    # __slots__ = ['_id', '_order_lower_bound', '_order_store']
-
     def __init__(self, proc_id: str):
         self._id = proc_id
         self._order_lower_bound = 0
@@ -44,20 +40,18 @@ class AtMostOnceReceiver(Process):
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver
         # deliver message to local user with ctx.send_local()
-        order = msg['order']
+        order = msg["order"]
         if order >= self._order_lower_bound and order not in self._order_store:
             self._order_store.add(order)
-            msg.remove('order')
+            msg.remove("order")
             ctx.send_local(msg)
-
-        if all(cur_order in self._order_store for cur_order in range(order - MESSAGE_ORDER_LIMIT_AMO, order)):
+        if all(
+            cur_order in self._order_store
+            for cur_order in range(order - MESSAGE_ORDER_LIMIT_AMO, order)
+        ):
             for order_to_remove in range(self._order_lower_bound, order + 1):
                 self._order_store.discard(order_to_remove)
             self._order_lower_bound = order + 1
-    
-    
-
-
 
     def on_timer(self, timer_name: str, ctx: Context):
         # process fired timers here
@@ -70,8 +64,6 @@ DELAY_ALO = 4
 
 
 class AtLeastOnceSender(Process):
-    # __slots__ = ['_id', '_receiver', '_order', '_message_store']
-
     def __init__(self, proc_id: str, receiver_id: str):
         self._id = proc_id
         self._receiver = receiver_id
@@ -80,29 +72,28 @@ class AtLeastOnceSender(Process):
 
     def on_local_message(self, msg: Message, ctx: Context):
         # receive message for delivery from local user
-        self._message_store[self._order] = msg['text']
-        msg['order'] = self._order
+        self._message_store[self._order] = msg["text"]
+        msg["order"] = self._order
         ctx.send(msg, self._receiver)
         ctx.set_timer(str(self._order), DELAY_ALO)
         self._order += 1
 
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver here
-        self._message_store.pop(msg['order'], None)
+        self._message_store.pop(msg["order"], None)
 
     def on_timer(self, timer_name: str, ctx: Context):
         # process fired timers here
         order = int(timer_name)
         if order in self._message_store:
             msg = Message(
-                'MESSAGE', {'text': self._message_store[order], 'order': order})
+                "MESSAGE", {"text": self._message_store[order], "order": order}
+            )
             ctx.send(msg, self._receiver)
             ctx.set_timer(timer_name, DELAY_ALO)
 
 
 class AtLeastOnceReceiver(Process):
-    # __slots__ = ['_id']
-
     def __init__(self, proc_id: str):
         self._id = proc_id
 
@@ -113,11 +104,10 @@ class AtLeastOnceReceiver(Process):
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver
         # deliver message to local user with ctx.send_local()
-        order = msg['order']
-        msg.remove('order')
+        order = msg["order"]
+        msg.remove("order")
         ctx.send_local(msg)
-
-        ack = Message('MESSAGE', {'order': order})
+        ack = Message("MESSAGE", {"order": order})
         ctx.send(ack, sender)
 
     def on_timer(self, timer_name: str, ctx: Context):
@@ -127,13 +117,11 @@ class AtLeastOnceReceiver(Process):
 
 # EXACTLY ONCE ---------------------------------------------------------------------------------------------------------
 
-DELAY_EO = 5
-MESSAGE_ORDER_LIMIT_EO = 30
+DELAY_EO = 4
+MESSAGE_ORDER_LIMIT_EO = 21
 
 
 class ExactlyOnceSender(Process):
-    #__slots__ = ['_id', '_receiver', '_order', '_message_store']
-
     def __init__(self, proc_id: str, receiver_id: str):
         self._id = proc_id
         self._receiver = receiver_id
@@ -143,35 +131,34 @@ class ExactlyOnceSender(Process):
 
     def on_local_message(self, msg: Message, ctx: Context):
         # receive message for delivery from local user
-        self._message_store[self._order] = msg['text']
+        self._message_store[self._order] = msg["text"]
         if self._order <= self._order_lower_bound + MESSAGE_ORDER_LIMIT_EO:
-            msg['order'] = self._order
+            msg["order"] = self._order
             ctx.send(msg, self._receiver)
         ctx.set_timer(str(self._order), DELAY_EO)
         self._order += 1
 
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver here
-        self._message_store.pop(msg['order'], None)
-        self._order_lower_bound = max(self._order_lower_bound, msg['lower_bound'])
+        self._message_store.pop(msg["order"], None)
+        self._order_lower_bound = max(self._order_lower_bound, msg["lower_bound"])
 
     def on_timer(self, timer_name: str, ctx: Context):
         # process fired timers here
         order = int(timer_name)
         if order not in self._message_store:
             return
-        
+
         if order <= self._order_lower_bound + MESSAGE_ORDER_LIMIT_EOO:
             msg = Message(
-                'MESSAGE', {'text': self._message_store[order], 'order': order})
+                "MESSAGE", {"text": self._message_store[order], "order": order}
+            )
             ctx.send(msg, self._receiver)
 
         ctx.set_timer(timer_name, DELAY_EO)
 
 
 class ExactlyOnceReceiver(Process):
-    #__slots__ = ['_id', '_order_lower_bound', '_order_store']
-
     def __init__(self, proc_id: str):
         self._id = proc_id
         self._order_lower_bound = 0
@@ -184,19 +171,20 @@ class ExactlyOnceReceiver(Process):
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver
         # deliver message to local user with ctx.send_local()
-        order = msg['order']
-        ack = Message('MESSAGE', {'order': order, 'lower_bound' : self._order_lower_bound})
-        ctx.send(ack, sender)
-
+        order = msg["order"]
         if order >= self._order_lower_bound and order not in self._order_store:
             self._order_store.add(order)
-            msg.remove('order')
+            msg.remove("order")
             ctx.send_local(msg)
 
         while self._order_lower_bound in self._order_store:
             self._order_store.discard(self._order_lower_bound)
             self._order_lower_bound += 1
-    
+        
+        ack = Message(
+            "MESSAGE", {"order": order, "lower_bound": self._order_lower_bound}
+        )
+        ctx.send(ack, sender)
 
     def on_timer(self, timer_name: str, ctx: Context):
         # process fired timers here
@@ -208,9 +196,8 @@ class ExactlyOnceReceiver(Process):
 DELAY_EOO = 4
 MESSAGE_ORDER_LIMIT_EOO = 30
 
-class ExactlyOnceOrderedSender(Process):
-    #__slots__ = ['_id', '_receiver', '_order', '_message_store']
 
+class ExactlyOnceOrderedSender(Process):
     def __init__(self, proc_id: str, receiver_id: str):
         self._id = proc_id
         self._receiver = receiver_id
@@ -220,35 +207,34 @@ class ExactlyOnceOrderedSender(Process):
 
     def on_local_message(self, msg: Message, ctx: Context):
         # receive message for delivery from local user
-        self._message_store[self._order] = msg['text']
+        self._message_store[self._order] = msg["text"]
         if self._order <= self._order_lower_bound + MESSAGE_ORDER_LIMIT_EOO:
-            msg['order'] = self._order
+            msg["order"] = self._order
             ctx.send(msg, self._receiver)
         ctx.set_timer(str(self._order), DELAY_EOO)
         self._order += 1
 
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver here
-        self._message_store.pop(msg['order'], None)
-        self._order_lower_bound = max(self._order_lower_bound, msg['lower_bound'])
+        self._message_store.pop(msg["order"], None)
+        self._order_lower_bound = max(self._order_lower_bound, msg["lower_bound"])
 
     def on_timer(self, timer_name: str, ctx: Context):
         # process fired timers here
         order = int(timer_name)
         if order not in self._message_store:
             return
-        
+
         if order <= self._order_lower_bound + MESSAGE_ORDER_LIMIT_EOO:
             msg = Message(
-                'MESSAGE', {'text': self._message_store[order], 'order': order})
+                "MESSAGE", {"text": self._message_store[order], "order": order}
+            )
             ctx.send(msg, self._receiver)
 
         ctx.set_timer(timer_name, DELAY_EOO)
 
 
 class ExactlyOnceOrderedReceiver(Process):
-    #__slots__ = ['_id', '_order_lower_bound', '_message_store']
-
     def __init__(self, proc_id: str):
         self._id = proc_id
         self._order_lower_bound = 0
@@ -261,17 +247,20 @@ class ExactlyOnceOrderedReceiver(Process):
     def on_message(self, msg: Message, sender: str, ctx: Context):
         # process messages from receiver
         # deliver message to local user with ctx.send_local()
-        order = msg['order']
+        order = msg["order"]
         if order >= self._order_lower_bound and order not in self._message_store:
-            self._message_store[order] = msg['text']
+            self._message_store[order] = msg["text"]
             while self._order_lower_bound in self._message_store:
                 msg = Message(
-                    'MESSAGE', {'text': self._message_store[self._order_lower_bound]})
+                    "MESSAGE", {"text": self._message_store[self._order_lower_bound]}
+                )
                 ctx.send_local(msg)
                 self._message_store.pop(self._order_lower_bound)
                 self._order_lower_bound += 1
 
-        ack = Message('MESSAGE', {'order': order, 'lower_bound': self._order_lower_bound})
+        ack = Message(
+            "MESSAGE", {"order": order, "lower_bound": self._order_lower_bound}
+        )
         ctx.send(ack, sender)
 
     def on_timer(self, timer_name: str, ctx: Context):
