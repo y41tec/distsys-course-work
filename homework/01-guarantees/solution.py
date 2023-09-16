@@ -149,7 +149,7 @@ class ExactlyOnceSender(Process):
         if order not in self._message_store:
             return
 
-        if order <= self._order_lower_bound + MESSAGE_ORDER_LIMIT_EOO:
+        if order <= self._order_lower_bound + MESSAGE_ORDER_LIMIT_EO:
             msg = Message(
                 "MESSAGE", {"text": self._message_store[order], "order": order}
             )
@@ -180,7 +180,7 @@ class ExactlyOnceReceiver(Process):
         while self._order_lower_bound in self._order_store:
             self._order_store.discard(self._order_lower_bound)
             self._order_lower_bound += 1
-        
+
         ack = Message(
             "MESSAGE", {"order": order, "lower_bound": self._order_lower_bound}
         )
