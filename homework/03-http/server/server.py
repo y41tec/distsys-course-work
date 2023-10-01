@@ -63,10 +63,16 @@ class HTTPHandler(StreamRequestHandler):
                     http_messages.HEADER_CONTENT_LENGTH
                 ] = path.stat().st_size
                 with open(path, "rb") as file:
-                    response.send(reciever_stream=self.wfile, sender_stream=file)
+                    response.send(
+                        reciever_stream=self.wfile,
+                        sender_stream=file,
+                        size=response.headers[http_messages.HEADER_CONTENT_LENGTH],
+                    )
             elif path.is_dir():
                 request.skip_body()
-                listing = subprocess.check_output(["ls", "-la", "--time-style=+\"%Y-%m-%d %H:%M:%S\"", str(path)])
+                listing = subprocess.check_output(
+                    ["ls", "-la", '--time-style=+"%Y-%m-%d %H:%M:%S"', str(path)]
+                )
                 response.status = http_messages.OK
                 response.headers[
                     http_messages.HEADER_CONTENT_TYPE

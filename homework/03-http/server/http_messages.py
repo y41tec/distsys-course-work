@@ -2,6 +2,8 @@ import dataclasses
 import gzip
 import typing as t
 
+from utils import get_body_chunks
+
 CHUNKSIZE = 1024
 
 
@@ -41,11 +43,8 @@ class HTTPRequest:
 
     def get_body_chunks(self):
         if self._stream and HEADER_CONTENT_LENGTH in self.headers:
-            while self.headers[HEADER_CONTENT_LENGTH] > 0:
-                yield self._stream.read(
-                    min(self.headers[HEADER_CONTENT_LENGTH], CHUNKSIZE)
-                )
-                self.headers[HEADER_CONTENT_LENGTH] -= CHUNKSIZE
+            for chunk in get_body_chunks(stream=self._stream, chunk_size=CHUNKSIZE, size=self.headers[HEADER_CONTENT_LENGTH]):
+                yield chunk
 
 
 class HTTPResponse:
@@ -56,13 +55,14 @@ class HTTPResponse:
         self.compression: bool = False
         self.headers: t.Dict[str, str] = {}
 
-    def send(self, reciever_stream, byte_content=None, sender_stream=None):
+    def send(self, reciever_stream, byte_content=None, sender_stream=None, size=0):
         reciever_stream.write(self._to_bytes())
         reciever_stream.write(CRLF)
         if byte_content:
             reciever_stream.write(gzip.compress(byte_content) if self.compression else byte_content)
         else:
-            reciever_stream.write(gzip.compress(sender_stream.read()) if self.compression else sender_stream.read())
+            for chunk in get_body_chunks(stream=sender_stream, chunk_size=CHUNKSIZE, size=size):
+                reciever_stream.write(gzip.compress(chunk) if self.compression else chunk)
 
     def _to_bytes(self):
         response_lines = [
