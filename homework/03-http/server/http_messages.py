@@ -1,55 +1,96 @@
 import dataclasses
+import gzip
 import typing as t
 
+CHUNKSIZE = 1024
 
-@dataclasses.dataclass
+
 class HTTPRequest:
-    method: str
-    path: str
-    version: str
-    parameters: t.Dict[str, str]
-    headers: t.Dict[str, str]
+    def __init__(self):
+        self.method: str = ""
+        self.path: str = ""
+        self.version: str = ""
+        self.parameters: t.Dict[str, str] = {}
+        self.headers: t.Dict[str, str] = {}
+        self._stream = None
 
-    @staticmethod
-    def from_bytes(data: bytes) -> "HTTPRequest":
-        # TODO: Write your code
-        pass
+    def parse_from_stream(self, stream):
+        try:
+            self._stream = stream
+            self._parse_startline()
+            self._parse_headerline()
+        except Exception as e:
+            self._stream = None
+            print(e)
 
-    def to_bytes(self) -> bytes:
-        # TODO: Write your code
-        pass
+    def _parse_startline(self):
+        line = self._stream.readline()
+        self.method, self.path, self.version = line.decode().strip().split()
+
+    def _parse_headerline(self):
+        while True:
+            line = self._stream.readline()
+            if line == CRLF:
+                return
+            key, value = line.decode().strip().split(": ")
+            self.headers[key] = int(value) if key == HEADER_CONTENT_LENGTH else value
+
+    def skip_body(self):
+        for _ in self.get_body_chunks():
+            continue
+
+    def get_body_chunks(self):
+        if self._stream and HEADER_CONTENT_LENGTH in self.headers:
+            while self.headers[HEADER_CONTENT_LENGTH] > 0:
+                yield self._stream.read(
+                    min(self.headers[HEADER_CONTENT_LENGTH], CHUNKSIZE)
+                )
+                self.headers[HEADER_CONTENT_LENGTH] -= CHUNKSIZE
 
 
-@dataclasses.dataclass
 class HTTPResponse:
-    version: str
-    status: str
-    headers: t.Dict[str, str]
+    def __init__(self):
+        self.server: str = ""
+        self.version: str = ""
+        self.status: str = ""
+        self.compression: bool = False
+        self.headers: t.Dict[str, str] = {}
 
-    @staticmethod
-    def from_bytes(data: bytes) -> "HTTPResponse":
-        # TODO: Write your code
-        pass
+    def send(self, reciever_stream, byte_content=None, sender_stream=None):
+        reciever_stream.write(self._to_bytes())
+        reciever_stream.write(CRLF)
+        if byte_content:
+            reciever_stream.write(gzip.compress(byte_content) if self.compression else byte_content)
+        else:
+            reciever_stream.write(gzip.compress(sender_stream.read()) if self.compression else sender_stream.read())
 
-    def to_bytes(self) -> bytes:
-        # TODO: Write your code
-        pass
+    def _to_bytes(self):
+        response_lines = [
+            f"{self.version} {self.status} {HTTP_REASON_BY_STATUS[self.status]}\r\n",
+            f"{HEADER_CONTENT_TYPE}: text/html\r\n",
+            f"{HEADER_CONTENT_LENGTH}: {self.headers[HEADER_CONTENT_LENGTH]}\r\n",
+            f"{HEADER_SERVER}: {self.server}\r\n",
+        ]
+        if self.compression:
+            response_lines.append(f"{HEADER_CONTENT_ENCODING}: {GZIP}\r\n",)
+        return ("".join(response_lines)).encode()
+
 
 # Common HTTP strings and constants
 
 
-CR = b'\r'
-LF = b'\n'
+CR = b"\r"
+LF = b"\n"
 CRLF = CR + LF
 
 HTTP_VERSION = "1.1"
 
-OPTIONS = 'OPTIONS'
-GET = 'GET'
-HEAD = 'HEAD'
-POST = 'POST'
-PUT = 'PUT'
-DELETE = 'DELETE'
+OPTIONS = "OPTIONS"
+GET = "GET"
+HEAD = "HEAD"
+POST = "POST"
+PUT = "PUT"
+DELETE = "DELETE"
 
 METHODS = [
     OPTIONS,

@@ -3,6 +3,8 @@
 .vscode/
 
 # Python
+Pipfile
+Pipfile.lock
 __pycache__/
 *.py[cod]
 
