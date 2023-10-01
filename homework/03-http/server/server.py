@@ -66,11 +66,7 @@ class HTTPHandler(StreamRequestHandler):
                     response.send(reciever_stream=self.wfile, sender_stream=file)
             elif path.is_dir():
                 request.skip_body()
-                listing = subprocess.check_output(
-                    ["ls", "-lA", "--time-style=+%Y-%m-%d %H:%M:%S"],
-                    cwd=path,
-                    shell=True,
-                )
+                listing = subprocess.check_output(["ls", "-la", "--time-style=+\"%Y-%m-%d %H:%M:%S\"", str(path)])
                 response.status = http_messages.OK
                 response.headers[
                     http_messages.HEADER_CONTENT_TYPE
