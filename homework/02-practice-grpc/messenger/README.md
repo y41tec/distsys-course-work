@@ -1,8 +1,29 @@
-# Код решения
+```
+messenger
+├── proto
+│   └── messenger.proto
+├── client
+│   ├── client.py
+│   ├── requirements.txt
+│   └── run.sh
+├── client.dockerfile
+├── server
+│   ├── server.pyrequirements.txt
+│   ├── requirements.txt
+│   └── run.sh
+└── server.dockerfile
+```
 
-В этой папке надо писать весь код решения.
+- `proto/messenger.proto`: тут содержится определение сервиса `MessengerServer` c методами `SendMessage(Data) -> Ack` и `ReadMessages(Empty) -> stream Message`; описание сообщений `Data`, `Ack`, `Message`
 
-Единственное, что нужно соблюсти с точки зрения структуры это сохранить структуру файлов, которые уже тут лежат, а именно:
-- `client.dockerfile` используется в `../docker-compose.yml`, чтобы собирать образы клиентов, вам нужно написать его самим, для запуска будет использоваться CMD/ENTRYPOINT из докерфайла
-- `server.dockerfile` используется в `../docker-compose.yml`, чтобы собирать образ сервера, его так же надо написать самим
-- `proto/messenger.proto` используется в тестах, поэтому его содержимое надо только расширять, перемещать файл не стоит.
+
+- `client/client.py`: `PostBox` -- сборщик сообщений, поддерживающий конкурентные обращения; `MessageHandler` -- HTTP-хэндлер; `consume_messages` -- функция для сборки сообщений, работающая в фоновом потоке `consumer_thread`
+- `client/requirements.txt`: необходимые зависимости для запуска клиента
+- `client/run.sh`: скрипт запускает кодогенерацию на основе `proto/messenger.proto`, размещает результаты в папке `client`, после чего запускает клиент
+- `client.dockerfile`: докерфайл, описывабщий сборку клиента
+
+
+- `server/requirements.txt`: необходимые зависимости для запуска сервера
+- `server/server.py`: `MessengerServer` - обработчик gRPC-запросов, в атрибуте `_streams` поддерживает доступный из разных потоков список очередей, каждая очередь соотвествует отдельному вызову `ReadMessages`, создается при вызове этого метода и наполняется по мере поступлений сообщений в методе `SendMessage`
+- `server/run.sh`: скрипт запускает кодогенерацию на основе `proto/messenger.proto`, размещает результаты в папке `srver`, после чего запускает сервер
+- `server.dockerfile`: докерфайл, описывабщий сборку сервера

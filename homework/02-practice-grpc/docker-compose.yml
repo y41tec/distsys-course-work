@@ -19,6 +19,8 @@ services:
       MESSENGER_HTTP_PORT: 8080
     ports:
       - 8080:8080
+    depends_on:
+      - server
 
   client2:
     image: grpc-solution-client
@@ -30,6 +32,8 @@ services:
       MESSENGER_HTTP_PORT: 8080
     ports:
       - 8081:8080
+    depends_on:
+      - server
 
   tests:
     image: grpc-solution-tests

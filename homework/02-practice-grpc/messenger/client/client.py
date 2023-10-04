@@ -1,5 +1,6 @@
 import copy
 import json
+import logging
 import os
 import random
 import threading
@@ -10,8 +11,8 @@ from typing import List, Dict
 import grpc
 import google.protobuf.json_format  # ParseDict, MessageToDict
 import google.protobuf.empty_pb2  # Empty
-from messenger.proto import messenger_pb2
-from messenger.proto import messenger_pb2_grpc
+import messenger_pb2
+import messenger_pb2_grpc
 
 
 class PostBox:
@@ -58,30 +59,29 @@ class MessageHandler(BaseHTTPRequestHandler):
 
     def _send_message(self, content: str) -> dict:
         json_request = json.loads(content)
-
-        # TODO: use google.protobuf.json_format.ParseDict
-
-        # TODO: your rpc call of the messenger here
-
-        # TODO: use google.protobuf.json_format.MessageToDict here
-        return {'sendTime': ''}
+        data = google.protobuf.json_format.ParseDict(json_request, messenger_pb2.Data())
+        ack = self._stub.SendMessage(data)
+        return google.protobuf.json_format.MessageToDict(ack)
 
     def _get_messages(self) -> List[dict]:
         return self._postbox.collect_messages()
 
 
-def main():
-    grpc_server_address = os.environ.get('MESSENGER_SERVER_ADDR', 'localhost:51075')
+def consume_messages(stub, postbox):
+    for message in stub.ReadMessages(google.protobuf.empty_pb2.Empty()):
+        postbox.put_message(google.protobuf.json_format.MessageToDict(message))
 
-    # TODO: create your grpc client with given address
-    stub = None
+
+def main():
+    grpc_server_address = os.environ.get('MESSENGER_SERVER_ADDR')
+    channel = grpc.insecure_channel(grpc_server_address)
+    stub = messenger_pb2_grpc.MessengerServerStub(channel)
 
     # A list of messages obtained from the server-py but not yet requested by the user to be shown
     # (via the http's /getAndFlushMessages).
     postbox = PostBox()
-
-    # TODO: Implement and run a messages stream consumer in a background thread here.
-    # It should fetch messages via the grpc client and store them in the postbox.
+    consumer_thread = threading.Thread(target=consume_messages, args=[stub, postbox])
+    consumer_thread.start()
 
     # Pass the stub and the postbox to the HTTP server.
     # Dirty, but this simple http server doesn't provide interface
@@ -89,7 +89,7 @@ def main():
     MessageHandler._stub = stub
     MessageHandler._postbox = postbox
 
-    http_port = os.environ.get('MESSENGER_HTTP_PORT', '8080')
+    http_port = os.environ.get('MESSENGER_HTTP_PORT')
     http_server_address = ('0.0.0.0', int(http_port))
 
     # NB: handler_class is instantiated for every http request. Do not store any inter-request state in it.
@@ -98,4 +98,5 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig()
     main()
