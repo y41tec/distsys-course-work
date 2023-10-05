@@ -7,4 +7,4 @@ RUN pip3 install -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT ["python", "server.py"]
+ENTRYPOINT ["python3", "server.py"]
