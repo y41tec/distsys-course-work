@@ -54,7 +54,7 @@ class BroadcastProcess(Process):
         counter = msg["counter"]
         state = msg["state"]
         return counter == self._state[sender] and all(
-            i == sender or state[i] <= self._state[i] for i in range(len(self._state))
+            state[i] <= self._state[i] for i in range(len(self._state))
         )
 
     def deliver_message(self, msg: Message, ctx: Context):
