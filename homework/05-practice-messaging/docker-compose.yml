@@ -8,27 +8,46 @@ services:
             - "15672:15672"
             - "5672:5672"
     web:
-        build: 
+        build:
             context: server
+        environment:
+            WEB_HOST: "0.0.0.0"
+            WEB_PORT: "5000"
+            IMAGES_ENDPOINT: "/api/v1.0/images"
+            DATA_DIR: "/data"
+
+            RABBITMQ_HOST: "rabbitmq"
+            RABBITMQ_PORT: "5672"
         volumes:
             # do not remove these volumes
             - /var/run/docker.sock:/tmp/docker.sock
             - data-volume:/data
         expose:
             - 5000
+        depends_on:
+            - rabbitmq
     worker:
-        build: 
+        build:
             context: worker
+        environment:
+            RABBITMQ_HOST: "rabbitmq"
+            RABBITMQ_PORT: "5672"
         volumes:
             # do not remove these volumes
             - /var/run/docker.sock:/tmp/docker.sock
             - data-volume:/data
+        depends_on:
+            - rabbitmq
     pytest:
         build: tests/
         volumes:
             # do not remove these volumes
             - /var/run/docker.sock:/tmp/docker.sock
             - data-volume:/data
+        depends_on:
+            - rabbitmq
+            - web
+            - worker
 
 volumes:
-    data-volume: 
+    data-volume:
