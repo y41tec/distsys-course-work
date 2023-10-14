@@ -11,13 +11,12 @@ services:
         build:
             context: server
         environment:
-            WEB_HOST: "0.0.0.0"
-            WEB_PORT: "5000"
-            IMAGES_ENDPOINT: "/api/v1.0/images"
-            DATA_DIR: "/data"
-
             RABBITMQ_HOST: "rabbitmq"
             RABBITMQ_PORT: "5672"
+
+            WEB_HOST: "0.0.0.0"
+            WEB_PORT: "5000"
+            DATA_DIR: "/data"
         volumes:
             # do not remove these volumes
             - /var/run/docker.sock:/tmp/docker.sock
@@ -32,6 +31,8 @@ services:
         environment:
             RABBITMQ_HOST: "rabbitmq"
             RABBITMQ_PORT: "5672"
+
+            DATA_DIR: "/data"
         volumes:
             # do not remove these volumes
             - /var/run/docker.sock:/tmp/docker.sock
