@@ -103,7 +103,7 @@ class GroupMember(Process):
 
     def _on_leave(self, sender: str):
         if sender in self._active:
-            self._suspect[sender] = -1 * (self._active.pop(sender) + 1)
+            self._suspect[sender] = -1 * self._active.pop(sender)
         elif sender in self._suspect and self._suspect[sender] > 0:
             self._suspect[sender] *= -1
 
