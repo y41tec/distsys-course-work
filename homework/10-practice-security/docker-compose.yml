@@ -1,22 +1,44 @@
 services:
-    auth:
-        build: 
-            context: auth
-        volumes:
-            - ./auth/signature.pem:/tmp/signature.pem
-            - ./auth/signature.pub:/tmp/signature.pub
-        command: ["--private", "/tmp/signature.pem", "--public", "/tmp/signature.pub", "--port", "8090"]
-        ports:
-            - 8090:8090
-
     kv:
-        build: 
+        build:
             context: kv
+            dockerfile: kv.dockerfile
         volumes:
-            - ./auth/signature.pub:/tmp/signature.pub
-        command: ["--public", "/tmp/signature.pub", "--port", "8090"]
+            - ./auth/public.pem:/tmp/public.pem
+        command:
+            [
+                "python3",
+                "kv.py",
+                "--public",
+                "/tmp/public.pem",
+                "--port",
+                "8090"
+            ]
         ports:
             - 8091:8090
+
+    auth:
+        build:
+            context: auth
+            dockerfile: auth.dockerfile
+        volumes:
+            - ./auth/private.pem:/tmp/private.pem
+            - ./auth/public.pem:/tmp/public.pem
+        command:
+            [
+                "python3",
+                "auth.py",
+                "--private",
+                "/tmp/private.pem",
+                "--public",
+                "/tmp/public.pem",
+                "--port",
+                "8090"
+            ]
+        ports:
+            - 8090:8090
+        depends_on:
+            - kv
 
     tests:
         build:
@@ -24,11 +46,11 @@ services:
         environment:
             KV_SERVER_URL: "http://kv:8090"
             AUTH_SERVER_URL: "http://auth:8090"
-            JWT_PRIVATE_KEY_FILE: "/tmp/signature.pem"
-            JWT_PUBLIC_KEY_FILE: "/tmp/signature.pub"
+            JWT_PRIVATE_KEY_FILE: "/tmp/private.pem"
+            JWT_PUBLIC_KEY_FILE: "/tmp/public.pem"
         volumes:
-            - ./auth/signature.pem:/tmp/signature.pem
-            - ./auth/signature.pub:/tmp/signature.pub
+            - ./auth/private.pem:/tmp/private.pem
+            - ./auth/public.pem:/tmp/public.pem
         depends_on:
             - auth
             - kv
